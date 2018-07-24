@@ -17,9 +17,15 @@ limitations under the License.
 package bender
 
 import (
+	"math"
 	"math/rand"
 	"time"
 )
+
+// IntervalGenerator takes the current time and returns a duration until the next request will be sent. The argument is
+// usually ignored, but can be be used to build a time-varying interval generator (for example, to follow daily or
+// hourly load variations for a web site).
+type IntervalGenerator func(time.Time) time.Duration
 
 // ExponentialIntervalGenerator creates an IntervalGenerator that outputs exponentially distributed
 // intervals. The resulting arrivals constitute a Poisson process. The rate parameter is the average
@@ -28,16 +34,20 @@ import (
 // as the value of rate.
 func ExponentialIntervalGenerator(rate float64) IntervalGenerator {
 	rate = rate / float64(time.Second)
-	return func(_ int64) int64 {
-		return int64(rand.ExpFloat64() / rate)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return func(_ time.Time) time.Duration {
+		return time.Duration(r.ExpFloat64() / rate)
 	}
 }
 
 // UniformIntervalGenerator creates and IntervalGenerator that outputs 1/rate every time it is
-// called. Boring, right?
+// called.
 func UniformIntervalGenerator(rate float64) IntervalGenerator {
-	irate := int64(rate / float64(time.Second))
-	return func(_ int64) int64 {
-		return irate
+	var irate int64 = math.MaxInt64
+	if rate != 0.0 {
+		irate = int64(float64(time.Second) / rate)
+	}
+	return func(_ time.Time) time.Duration {
+		return time.Duration(irate)
 	}
 }
